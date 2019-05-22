@@ -83,10 +83,35 @@
     (incf *pass-count*))
   (values))
 
+(defun two-arg-predicate-p (form)
+  (and (listp form)
+       (= 3 (length form))
+       (symbolp (first form))))
+
+(defun predicate-assertion (form)
+  (destructuring-bind (predicate expected actual) form
+    (let ((e (gensym "EXPECTED"))
+          (a (gensym "ACTUAL")))
+      `(let ((,e ,expected)
+             (,a ,actual))
+         (assert (,predicate ,e ,a) ()
+           "The assertion ~S failed.~2%Expected:~2%    ~A~2%is not ~A to actual:~2%    ~A~%"
+           ',form
+           (write-to-string ,e :pretty t)
+           ',predicate
+           (write-to-string ,a :pretty t))))))
+
+(defun simple-assertion (form)
+  `(assert ,form ()
+           "Test failed.~2%Expected non-NIL result from:~2%    ~A~2%but the result was NIL.~%"
+           (write-to-string ',form :pretty t)))
+
 (defmacro is (form)
   "Assert that `form' evaluates to non-nil."
   `(progn
-     (assert ,form)
+     ,(if (two-arg-predicate-p form)
+        (predicate-assertion form)
+        (simple-assertion form))
      (passed)))
 
 (defun %signals (expected fn)
